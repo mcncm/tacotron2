@@ -53,19 +53,18 @@ class ReferenceEncoder(nn.Module):
         self.ref_embedding_dim = hparams.ref_embedding_dim
         self.activation = hparams.activation
 
-        self.conv_block = ConvBlock(hparams.input_dims, hparams.filter_size,
-                                    hparams.filter_stride, hparams.filter_channels)
+        self.conv_block = ConvBlock(hparams.filter_size, hparams.filter_stride,
+                                    hparams.filter_channels)
 
         # rnn input dimension should be (cnn output channels) * dR_reduced
         rnn_input_dim = hparams.filter_channels[-1] *\
-            conv_output_dims(self.conv_block, hparams.input_dims)[0]
+            conv_output_dims(self.conv_block, (hparams.n_mel_channels, 200))[0] # this 200 is meaningless
         self.rnn_block = RnnBlock(rnn_input_dim, self.ref_embedding_dim, hparams.batch_size)
 
         # TODO: should there be bias in the linear layer?
         self.linear_layer = nn.Linear(self.ref_embedding_dim, self.ref_embedding_dim, bias=True)
 
     def forward(self, x):
-        # assert x.shape[-2:] == torch.Size(self.input_dims)  # this makes me a little uneasy
         x = self.conv_block(x.unsqueeze(1))
         x = self.rnn_block(x)
         x = self.activation(self.linear_layer(x))
@@ -77,9 +76,8 @@ class ConvBlock(nn.Module):
     uncertain by the requirement of constant L_R
 
     """
-    def __init__(self, input_dims, filter_size, filter_stride, filter_channels):
-        r"""input_dims: the dimensions (L_R, d_R) of the reference signal to be encoded
-        filter_size: the (identical) receptive field of each filter
+    def __init__(self, filter_size, filter_stride, filter_channels):
+        r"""filter_size: the (identical) receptive field of each filter
         filter_stride: the (identical) stride of each filter filter_channels: an
         array containing the /number of filters/ in each layer
 
