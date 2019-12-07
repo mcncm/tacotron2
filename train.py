@@ -202,17 +202,25 @@ def train(output_directory, log_directory, checkpoint_path, warm_start, n_gpus,
 
     model.train()
     is_overflow = False
-    # ================ MAIN TRAINNIG LOOP! ===================
+    # ================ MAIN TRAINING LOOP! ===================
     for epoch in range(epoch_offset, hparams.epochs):
         print("Epoch: {}".format(epoch))
         for i, batch in enumerate(train_loader):
+
+            if hasattr(hparams, 'max_iterations'):
+                if iteration > hparams.max_iterations:
+                    break
+
             start = time.perf_counter()
             for param_group in optimizer.param_groups:
                 param_group['lr'] = learning_rate
 
             model.zero_grad()
             x, y = model.parse_batch(batch)
-            y_pred = model(x)
+            # TODO: I'm not totally sure right now what the [1] component is.
+            # the [0] component _is_ a spectrogram, though.
+            breakpoint()
+            y_pred = model(x, y[0])
 
             loss = criterion(y_pred, y)
             if hparams.distributed_run:
@@ -279,6 +287,8 @@ if __name__ == '__main__':
 
     torch.backends.cudnn.enabled = hparams.cudnn_enabled
     torch.backends.cudnn.benchmark = hparams.cudnn_benchmark
+
+
 
     print("FP16 Run:", hparams.fp16_run)
     print("Dynamic Loss Scaling:", hparams.dynamic_loss_scaling)
