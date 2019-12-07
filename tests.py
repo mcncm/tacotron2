@@ -58,7 +58,6 @@ def _test_reference_encoder():
     input_spec = torch.randn(hparams.batch_size, *hparams.input_dims).cuda()
     re = ReferenceEncoder(hparams).cuda()
     embedding = re(input_spec)
-    breakpoint()
     assert embedding.shape == torch.Size([hparams.batch_size, 128])
 
 # @test

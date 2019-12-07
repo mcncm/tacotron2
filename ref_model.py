@@ -50,23 +50,22 @@ class ReferenceEncoder(nn.Module):
         """
         super(ReferenceEncoder, self).__init__()
 
-        self.input_dims = hparams.input_dims
         self.ref_embedding_dim = hparams.ref_embedding_dim
         self.activation = hparams.activation
 
-        self.conv_block = ConvBlock(self.input_dims, hparams.filter_size,
+        self.conv_block = ConvBlock(hparams.input_dims, hparams.filter_size,
                                     hparams.filter_stride, hparams.filter_channels)
 
         # rnn input dimension should be (cnn output channels) * dR_reduced
         rnn_input_dim = hparams.filter_channels[-1] *\
-            conv_output_dims(self.conv_block, self.input_dims)[1]
+            conv_output_dims(self.conv_block, hparams.input_dims)[0]
         self.rnn_block = RnnBlock(rnn_input_dim, self.ref_embedding_dim, hparams.batch_size)
 
         # TODO: should there be bias in the linear layer?
         self.linear_layer = nn.Linear(self.ref_embedding_dim, self.ref_embedding_dim, bias=True)
 
     def forward(self, x):
-        assert x.shape[-2:] == torch.Size(self.input_dims)  # this makes me a little uneasy
+        # assert x.shape[-2:] == torch.Size(self.input_dims)  # this makes me a little uneasy
         x = self.conv_block(x.unsqueeze(1))
         x = self.rnn_block(x)
         x = self.activation(self.linear_layer(x))
@@ -145,6 +144,9 @@ class RnnBlock(nn.Module):
     or the resulting LR/64 x (128 dR/64) matrix", they are talking about the
     reshaping operation below. (Please excuse the crummy ascii art).
 
+              LR, dR in wrong order. I'm not going to re-draw it.
+                                V
+
               (N,   128,  LR/64,    dR/64)
                 \     \___/           /
                  \_______/\          /
@@ -164,17 +166,18 @@ class RnnBlock(nn.Module):
         self.register_buffer('h0', torch.zeros(1, batch_size, embedding_dim))
 
     def forward(self, x):
-        r"""Native input dimension is (N, 128, LR/64, dR/64). Need to first permute the
+        r"""Native input dimension is (N, 128, dR/64, LR/64). Need to first permute the
         batch index into the order supported by the GRU, then flatten the
         ConvNet channel and reference dimensions.
 
         """
-        x = x.permute(2,0,1,3).flatten(start_dim=-2)
+        x = x.permute(3,0,1,2).flatten(start_dim=-2)
 
         # native input dimension for h0 is (S, N, hidden_size).
         # h0 = torch.zeros(1, x.shape[1], self.embedding_dim)
 
-        _, hn = self.gru(x, self.h0)  # discard the GRU output: don't care about it.
+        # discard the GRU output: don't care about it.
+        _, hn = self.gru(x, self.h0[:,:x.shape[1],:]) # why are some batch sizes different?
 
         # Native output dimension is (S, N, H_out). Want (N, H_out).
         return hn.squeeze()

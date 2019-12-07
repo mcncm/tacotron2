@@ -1,6 +1,8 @@
 import tensorflow as tf
 from text import symbols
 
+import torch.nn as nn
+
 
 def create_hparams(hparams_string=None, verbose=False):
     """Create model hyperparameters. Parse nondefault from given string."""
@@ -20,6 +22,7 @@ def create_hparams(hparams_string=None, verbose=False):
         cudnn_enabled=True,
         cudnn_benchmark=False,
         ignore_layers=['embedding.weight'],
+
 
         ################################
         # Data Parameters             #
@@ -52,6 +55,14 @@ def create_hparams(hparams_string=None, verbose=False):
         encoder_n_convolutions=3,
         encoder_embedding_dim=512,
 
+        # Reference encoder parameters
+        input_dims = (80, 862),
+        filter_size = 3,
+        filter_stride = 2,
+        filter_channels = [32, 32, 64, 64, 128, 128],
+        ref_embedding_dim = 128,
+        activation = nn.Tanh(),
+
         # Decoder parameters
         n_frames_per_step=1,  # currently only 1 is supported
         decoder_rnn_dim=1024,
@@ -81,7 +92,7 @@ def create_hparams(hparams_string=None, verbose=False):
         learning_rate=1e-3,
         weight_decay=1e-6,
         grad_clip_thresh=1.0,
-        batch_size=64,
+        batch_size=24,
         mask_padding=True  # set model's padded outputs to padded values
     )
 
