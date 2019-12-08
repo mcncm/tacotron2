@@ -32,11 +32,11 @@ def _test_conv_block(test_params):
     """Just feed some numbers through a ConvBlock and make sure it doesn't
     crash.
     """
-    input_shape = hparams.input_dims
+    input_shape = (80, 200)
     # leading 1s for batch size and number of channels (I think? Confirm.)
 
     input_tensor = torch.randn(1, 1, *input_shape)
-    cb = ConvBlock(input_shape, 3, 2, [32, 32, 64])
+    cb = ConvBlock(3, 2, [32, 32, 64])
     if test_params['cuda']:
         input_tensor = input_tensor.cuda()
         cb = cb.cuda()
@@ -66,7 +66,7 @@ def _test_rnn_block(test_params):
 
 @test
 def _test_reference_encoder(test_params):
-    input_spec = torch.randn(hparams.batch_size, *hparams.input_dims)
+    input_spec = torch.randn(hparams.batch_size, 80, 200)
     re = ReferenceEncoder(hparams)
     if test_params['cuda']:
         input_spec = input_spec.cuda()

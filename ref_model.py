@@ -67,7 +67,8 @@ class ReferenceEncoder(nn.Module):
     def forward(self, x):
         x = self.conv_block(x.unsqueeze(1))
         x = self.rnn_block(x)
-        x = self.activation(self.linear_layer(x))
+        x = F.dropout(self.activation(self.linear_layer(x)),
+                      p=0.5, training=self.training)
         return x
 
 
@@ -84,10 +85,6 @@ class ConvBlock(nn.Module):
         """
         super(ConvBlock, self).__init__()
 
-        # self.filter_size = filter_size
-        # self.filter_stride = filter_stride
-        # self.filter_channels = filter_channels
-
         # # TODO: double-check this is correct
         # # I don't really think it is.
         # self.output_dim = self.filter_channels[-1]
@@ -95,14 +92,12 @@ class ConvBlock(nn.Module):
         ### Internal layers ###
         # In each layer, filters with SAME padding, ReLU activation, and
         # Batchnorm.
+        same_padding = int(filter_size / 2)
         self.layers = nn.Sequential()
         for i, filters in enumerate(filter_channels):
-            # TODO: how many in_channels and out_channels?
+            # Order of layers should go ConvNet -> BN -> ReLU -> Dropout
+            # (or possibly ReLU -> BN)
             in_channels = 1 if i == 0 else filter_channels[i - 1]
-            # TODO: should use SAME padding. This doesn't appear to exist in
-            # PyTorch. Newer versions of PyTorch do have a `padding_mode`
-            # keyword argument, but it has no `SAME` option.
-            same_padding = int(filter_size / 2)
             self.layers.add_module('conv{}'.format(i),
                 nn.Conv2d(in_channels, filters, filter_size,
                           stride=filter_stride,
@@ -116,6 +111,9 @@ class ConvBlock(nn.Module):
 
             self.layers.add_module('relu{}'.format(i),
                                    nn.ReLU())
+
+            self.layers.add_module('dropout'.format(i),
+                                   nn.Dropout(p=0.5))
 
 
     def forward(self, x):
