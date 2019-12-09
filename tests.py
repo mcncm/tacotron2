@@ -8,12 +8,20 @@ import traceback
 from termcolor import colored
 from collections import defaultdict
 import argparse
+import os
 import sys
 
 import torch
 import torch.nn as nn
 
+sys.path.append('waveglow/')
+
 from ref_model import ConvBlock, RnnBlock, ReferenceEncoder
+from train import load_model
+from convert_model import update_model
+from denoiser import Denoiser
+from torch.utils.data import DataLoader
+from train import prepare_dataloaders
 
 from hparams import create_hparams
 
@@ -78,6 +86,40 @@ def _test_reference_encoder(test_params):
 # @test
 def _test_reference_encoder_real_spectrogram():
     pass
+
+@test
+def _test_inference(test_params):
+    # checkpoint_path = "tacotron2_statedict.pt"
+    checkpoint_path = 'new-test-outdir/checkpoint_27000'
+    checkpoint_name = os.path.basename(checkpoint_path)
+    model = load_model(hparams)
+    model.load_state_dict(torch.load(checkpoint_path)['state_dict'])
+    _ = model.cuda().eval()
+
+    waveglow_path = 'waveglow_256channels_ljs_v2.pt'
+    waveglow = update_model(torch.load(waveglow_path)['model'])
+    waveglow.cuda().eval()
+    for k in waveglow.convinv:
+        k.float()
+    denoiser = Denoiser(waveglow)
+
+    train_loader, valset, collate_fn = prepare_dataloaders(hparams)
+
+    val_loader = DataLoader(valset, sampler=None, num_workers=1,
+                            shuffle=False, batch_size=4,
+                            pin_memory=False, collate_fn=collate_fn)
+    x, y = model.parse_batch(next(iter(val_loader)))
+
+    embedded_inputs = model.embedding(x[0]).transpose(1, 2)
+    encoder_outputs = model.encoder.inference(embedded_inputs)
+
+    length = encoder_outputs.shape[1]
+    # reshaping encoder outputs:
+    # need shape (N, L, ref_embedding_dim)
+    ref_encoder_outputs = model.ref_encoder(y[0]).unsqueeze(1).repeat(1, length, 1)
+
+    mel_outputs, gate_outputs, alignments = model.decoder.inference(
+                torch.cat((encoder_outputs[1,:,:], ref_encoder_outputs[1,:,:]), -1))
 
 
 ### RUN THE TESTS ###
