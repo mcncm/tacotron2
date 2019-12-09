@@ -176,4 +176,4 @@ class RnnBlock(nn.Module):
         _, hn = self.gru(x, self.h0[:,:x.shape[1],:]) # why are some batch sizes different?
 
         # Native output dimension is (S, N, H_out). Want (N, H_out).
-        return hn.squeeze()
+        return hn.squeeze(0)

@@ -76,6 +76,7 @@ class Attention(nn.Module):
         processed_memory: processed encoder outputs
         attention_weights_cat: previous and cummulative attention weights
         mask: binary mask for padded data
+
         """
         alignment = self.get_alignment_energies(
             attention_hidden_state, processed_memory, attention_weights_cat)
@@ -435,11 +436,13 @@ class Decoder(nn.Module):
         gate_outputs: gate outputs from the decoder
         alignments: sequence of attention weights from the decoder
         """
+
         decoder_input = self.get_go_frame(memory)
 
         self.initialize_decoder_states(memory, mask=None)
 
         mel_outputs, gate_outputs, alignments = [], [], []
+
         while True:
             decoder_input = self.prenet(decoder_input)
             mel_output, gate_output, alignment = self.decode(decoder_input)
