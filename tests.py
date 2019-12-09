@@ -113,16 +113,6 @@ def _test_inference(test_params):
     x, y = model.parse_batch(next(val_loader_iter))
 
     model.inference(x[0][0,...].unsqueeze(0), y[0][0,...].unsqueeze(0))
-    # embedded_inputs = model.embedding(x[0]).transpose(1, 2)
-    # encoder_outputs = model.encoder.inference(embedded_inputs)
-
-    # length = encoder_outputs.shape[1]
-    # # reshaping encoder outputs:
-    # # need shape (N, L, ref_embedding_dim)
-    # ref_encoder_outputs = model.ref_encoder(y[0]).unsqueeze(1).repeat(1, length, 1)
-
-    # mel_outputs, gate_outputs, alignments = model.decoder.inference(
-    #             torch.cat((encoder_outputs[1,:,:], ref_encoder_outputs[1,:,:]), -1))
 
 
 ### RUN THE TESTS ###
