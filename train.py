@@ -131,7 +131,7 @@ def validate(model, criterion, valset, iteration, batch_size, n_gpus,
         val_loss = 0.0
         for i, batch in enumerate(val_loader):
             x, y = model.parse_batch(batch)
-            y_pred = model(x, y[0])  # TODO: as above, I'm not totally sure why this is [0]
+            y_pred = model(x)  # TODO: as above, I'm not totally sure why this is [0]
             loss = criterion(y_pred, y)
             if distributed_run:
                 reduced_val_loss = reduce_tensor(loss.data, n_gpus).item()
@@ -219,7 +219,7 @@ def train(output_directory, log_directory, checkpoint_path, warm_start, n_gpus,
             x, y = model.parse_batch(batch)
             # TODO: I'm not totally sure right now what the [1] component is.
             # the [0] component _is_ a spectrogram, though.
-            y_pred = model(x, y[0])
+            y_pred = model(x)
 
             loss = criterion(y_pred, y)
             if hparams.distributed_run:

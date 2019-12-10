@@ -56,7 +56,6 @@ def create_hparams(hparams_string=None, verbose=False):
         encoder_embedding_dim=512,
 
         # Reference encoder parameters
-        input_dims = (80, 862),
         filter_size = 3,
         filter_stride = 2,
         filter_channels = [32, 32, 64, 64, 128, 128],

@@ -53,22 +53,22 @@ class ReferenceEncoder(nn.Module):
         self.ref_embedding_dim = hparams.ref_embedding_dim
         self.activation = hparams.activation
 
-        self.conv_block = ConvBlock(hparams.input_dims, hparams.filter_size,
-                                    hparams.filter_stride, hparams.filter_channels)
+        self.conv_block = ConvBlock(hparams.filter_size, hparams.filter_stride,
+                                    hparams.filter_channels)
 
         # rnn input dimension should be (cnn output channels) * dR_reduced
         rnn_input_dim = hparams.filter_channels[-1] *\
-            conv_output_dims(self.conv_block, hparams.input_dims)[0]
+            conv_output_dims(self.conv_block, (hparams.n_mel_channels, 200))[0] # this 200 is meaningless
         self.rnn_block = RnnBlock(rnn_input_dim, self.ref_embedding_dim, hparams.batch_size)
 
         # TODO: should there be bias in the linear layer?
         self.linear_layer = nn.Linear(self.ref_embedding_dim, self.ref_embedding_dim, bias=True)
 
     def forward(self, x):
-        # assert x.shape[-2:] == torch.Size(self.input_dims)  # this makes me a little uneasy
         x = self.conv_block(x.unsqueeze(1))
         x = self.rnn_block(x)
-        x = self.activation(self.linear_layer(x))
+        x = F.dropout(self.activation(self.linear_layer(x)),
+                      p=0.5, training=self.training)
         return x
 
 
@@ -77,18 +77,13 @@ class ConvBlock(nn.Module):
     uncertain by the requirement of constant L_R
 
     """
-    def __init__(self, input_dims, filter_size, filter_stride, filter_channels):
-        r"""input_dims: the dimensions (L_R, d_R) of the reference signal to be encoded
-        filter_size: the (identical) receptive field of each filter
+    def __init__(self, filter_size, filter_stride, filter_channels):
+        r"""filter_size: the (identical) receptive field of each filter
         filter_stride: the (identical) stride of each filter filter_channels: an
         array containing the /number of filters/ in each layer
 
         """
         super(ConvBlock, self).__init__()
-
-        # self.filter_size = filter_size
-        # self.filter_stride = filter_stride
-        # self.filter_channels = filter_channels
 
         # # TODO: double-check this is correct
         # # I don't really think it is.
@@ -97,14 +92,12 @@ class ConvBlock(nn.Module):
         ### Internal layers ###
         # In each layer, filters with SAME padding, ReLU activation, and
         # Batchnorm.
+        same_padding = int(filter_size / 2)
         self.layers = nn.Sequential()
         for i, filters in enumerate(filter_channels):
-            # TODO: how many in_channels and out_channels?
+            # Order of layers should go ConvNet -> BN -> ReLU -> Dropout
+            # (or possibly ReLU -> BN)
             in_channels = 1 if i == 0 else filter_channels[i - 1]
-            # TODO: should use SAME padding. This doesn't appear to exist in
-            # PyTorch. Newer versions of PyTorch do have a `padding_mode`
-            # keyword argument, but it has no `SAME` option.
-            same_padding = int(filter_size / 2)
             self.layers.add_module('conv{}'.format(i),
                 nn.Conv2d(in_channels, filters, filter_size,
                           stride=filter_stride,
@@ -118,6 +111,9 @@ class ConvBlock(nn.Module):
 
             self.layers.add_module('relu{}'.format(i),
                                    nn.ReLU())
+
+            self.layers.add_module('dropout'.format(i),
+                                   nn.Dropout(p=0.5))
 
 
     def forward(self, x):
@@ -180,4 +176,4 @@ class RnnBlock(nn.Module):
         _, hn = self.gru(x, self.h0[:,:x.shape[1],:]) # why are some batch sizes different?
 
         # Native output dimension is (S, N, H_out). Want (N, H_out).
-        return hn.squeeze()
+        return hn.squeeze(0)
